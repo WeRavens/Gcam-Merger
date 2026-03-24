@@ -11,9 +11,21 @@ function handleFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    fileName.textContent = file.name;
-    const baseNameMatch = file.name.match(/(.*?)\.xml$/i);
-    originalFileNameStr = baseNameMatch ? baseNameMatch[1] : file.name;
+    // Decode URL Encoded names from third-party Android File Managers (e.g. %20 instead of spaces)
+    let decodedName = file.name;
+    try {
+        decodedName = decodeURIComponent(file.name);
+    } catch (e) {
+        // Fallback if not properly encoded
+    }
+
+    fileName.textContent = decodedName;
+    const baseNameMatch = decodedName.match(/(.*?)\.xml$/i);
+    originalFileNameStr = baseNameMatch ? baseNameMatch[1] : decodedName;
+
+    // Otomatis terapkan prefix "F5" dan nama asli config ke kolom input
+    // Menggunakan spasi / strip alih-alih ":" agar tidak error saat di-download di Windows
+    document.getElementById('output-name').value = `F5 - ${originalFileNameStr}`;
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -23,6 +35,12 @@ function handleFileSelect(event) {
         statusMsg.innerHTML = "XML Ready! Click Inject to push Opmode 61456 into all streams.";
         statusBox.classList.remove('success');
     };
+    
+    // Handle Android security permission blocks from third-party File Managers
+    reader.onerror = (e) => {
+        statusMsg.innerHTML = "<b>❌ Error:</b> File Manager blocked access due to Android Permissions. Please use the default <b>Google Files</b> app to select the XML!";
+    };
+    
     reader.readAsText(file);
 }
 
