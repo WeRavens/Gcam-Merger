@@ -60,7 +60,8 @@ injectBtn.addEventListener('click', () => {
             "pref_opmode_experimental_key_front",
             "pref_opmode_cshot_key", "pref_opmode_cshot_key_front", // Nikita night mode
             "pref_opmode_slowmo_key", "pref_opmode_slowmo_key_front", // Nikita slow mo alternative
-            "pref_opmode_front_key" // Alternative older front syntax
+            "pref_opmode_front_key", "pref_opmode_front_normal_key", // Nikita Front variations
+            "pref_opmode_nigth_key" // CRITICAL Nikita Typo for Night Mode ("nigth" instead of "night")
         ];
         
         requiredKeys.forEach(reqKey => {
