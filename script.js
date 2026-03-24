@@ -38,7 +38,10 @@ function handleFileSelect(event) {
     
     // Handle Android security permission blocks from third-party File Managers
     reader.onerror = (e) => {
-        statusMsg.innerHTML = "<b>❌ Error:</b> File Manager blocked access due to Android Permissions. Please use the default <b>Google Files</b> app to select the XML!";
+        statusMsg.innerHTML = `<b>⚠️ Warning:</b> OS File Manager failed to provide read access. (Error: ${e.target.error ? e.target.error.name : 'Unknown'}). The button is forced ON anyway to let you test.`;
+        // Paksa aktifkan tombol bagaimanapun juga sesuai permintaan
+        injectBtn.disabled = false;
+        injectBtn.classList.remove('disabled');
     };
     
     reader.readAsText(file);
