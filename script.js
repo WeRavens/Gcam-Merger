@@ -50,11 +50,17 @@ injectBtn.addEventListener('click', () => {
             return p1 + '61456' + pClose;
         });
 
-        // Force adding common stream opmode keys if missing
+        // Force adding common stream opmode keys if missing (covers BOTH Rear and Front cameras, plus Nikita specific keys like CSHOT)
         const requiredKeys = [
             "pref_opmode_night_key", "pref_opmode_portrait_key", 
             "pref_opmode_video_key", "pref_opmode_normal_key", "pref_opmode_motion_key", "pref_opmode_key",
-            "pref_opmode_experimental_key"
+            "pref_opmode_experimental_key",
+            "pref_opmode_night_key_front", "pref_opmode_portrait_key_front", 
+            "pref_opmode_video_key_front", "pref_opmode_normal_key_front", "pref_opmode_motion_key_front", "pref_opmode_key_front",
+            "pref_opmode_experimental_key_front",
+            "pref_opmode_cshot_key", "pref_opmode_cshot_key_front", // Nikita night mode
+            "pref_opmode_slowmo_key", "pref_opmode_slowmo_key_front", // Nikita slow mo alternative
+            "pref_opmode_front_key" // Alternative older front syntax
         ];
         
         requiredKeys.forEach(reqKey => {
@@ -67,6 +73,55 @@ injectBtn.addEventListener('click', () => {
                 count++;
             }
         });
+
+        // FORCE enable Stream Configuration Toggles (Switch "Aktif") for Nikita and other GCams
+        const enableStreamToggles = [
+            "pref_opmode_custom_key", 
+            "pref_stream_config_key", 
+            "pref_opmodes_enable_key",
+            "pref_stream_opmodes_enable_key",
+            "pref_enable_system_opmode_key"
+        ];
+
+        enableStreamToggles.forEach(toggleName => {
+            // Replace if it exists as false
+            if (finalXML.includes(`name="${toggleName}" value="false"`)) {
+                finalXML = finalXML.replace(new RegExp(`name="${toggleName}"\\s+value="false"`, 'g'), `name="${toggleName}" value="true"`);
+            } else if (!finalXML.includes(`name="${toggleName}"`)) {
+                // Insert if totally missing
+                const toggleTag = `    <boolean name="${toggleName}" value="true" />\n`;
+                finalXML = finalXML.replace(/<\/map>/i, toggleTag + "</map>");
+            }
+        });
+
+        // ----------------------------------------------------
+        // FORCE NIKITA's STREAM DROPDOWN TO "SDK 27" AND ENABLE
+        // This fixes the "." force close menu bug in GCam Nikita
+        // ----------------------------------------------------
+        const nikitaDropdowns = {
+            "pref_stream_opmode_key": "2", "pref_stream_opmode_key_2": "2", "pref_stream_opmode_key_3": "2", 
+            "pref_stream_opmode_key_4": "2", "pref_stream_opmode_key_5": "2", "pref_stream_opmode_key_front": "2",
+            "pref_opmodes_in": "1",
+            "pref_opmodes_key": "1", "pref_opmodes_key_2": "1", "pref_opmodes_key_3": "1",
+            "pref_opmodes_key_4": "0", "pref_opmodes_key_front": "0"
+        };
+        
+        for (const [key, val] of Object.entries(nikitaDropdowns)) {
+            // Replace if exists inside content tags (<string name="x">y</string>)
+            const regexContent = new RegExp(`(<(?:string|int)\\s+name="${key}">)(.*?)(<\\/(?:string|int)>)`, "gi");
+            if (regexContent.test(finalXML)) {
+                finalXML = finalXML.replace(regexContent, `$1${val}$3`);
+            } 
+            // Replace if exists inside attr tags (<int name="x" value="y" />)
+            else if (new RegExp(`(<(?:string|int)\\s+name="${key}"(?:\\s+[^>]*)?value=")(.*?)(".*?\\/>)`, "gi").test(finalXML)) {
+                finalXML = finalXML.replace(new RegExp(`(<(?:string|int)\\s+name="${key}"(?:\\s+[^>]*)?value=")(.*?)(".*?\\/>)`, "gi"), `$1${val}$3`);
+            } 
+            // Otherwise, inject it natively
+            else {
+                const defaultTag = `    <string name="${key}">${val}</string>\n`;
+                finalXML = finalXML.replace(/<\/map>/i, defaultTag + "</map>");
+            }
+        }
 
         let customName = document.getElementById('output-name').value.trim();
         if (!customName) customName = originalFileNameStr + '_Opmode61456';
