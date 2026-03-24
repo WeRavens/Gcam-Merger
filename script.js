@@ -4,6 +4,18 @@ const injectBtn = document.getElementById('inject-btn');
 const statusBox = document.getElementById('status-box');
 const statusMsg = document.getElementById('status-msg');
 
+window.onload = () => {
+    const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    
+    if (isFirefox && isAndroid) {
+        const warningDiv = document.createElement('div');
+        warningDiv.style = "background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; padding: 1rem; border-radius: 12px; text-align: center; color: #fca5a5; margin-top: 1.5rem; font-weight: 500; font-size: 0.95rem; line-height: 1.5;";
+        warningDiv.innerHTML = "⚠️ <b>Firefox Android Terdeteksi!</b><br>Firefox terkenal sering 'Membisu / Nge-bug' saat dimintai file XML dari aplikasi File Pihak Ketiga. Jika Config kamu tidak mau ter-upload saat dipilih, mohon gunakan <b>Google Chrome</b>, <b>Brave</b>, atau <b>Microsoft Edge</b> untuk pengalaman paling optimal.";
+        document.querySelector('header').appendChild(warningDiv);
+    }
+};
+
 let configContent = null;
 let originalFileNameStr = 'Injected_Config';
 
