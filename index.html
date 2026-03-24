@@ -3,64 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GCam Ultimate Config Merger</title>
+    <title>GCam Opmode Injector</title>
     <link rel="stylesheet" href="index.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
-    <script defer src="dtuxBase.js"></script>
     <script defer src="script.js"></script>
 </head>
 <body>
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
 
-    <main class="container">
+    <main class="container" style="max-width: 600px;">
         <header>
             <div class="logo-wrapper">
-                <span class="icon">✨</span>
-                <h1>GCam <span>Ultimate</span> Merger</h1>
+                <span class="icon">⚡</span>
+                <h1>Stream <span>Opmode</span> Injector</h1>
             </div>
-            <p>Smartly merge color gradients and picture profiles from your favorite visual config into a highly stable base framework like Dtux.</p>
+            <p>Automatically forcefully inject the ultra-stable Stream Opmode <b>61456</b> into any GCam configuration instantly.</p>
         </header>
 
-        <div class="upload-section">
-            <div class="card base-card" id="base-drop-zone">
-                <div class="card-icon">⚙️</div>
-                <h3>1. Upload Base Config</h3>
-                <p>Optional: Leave blank to use <b>Dtux</b> as the default foundation base.</p>
-                <input type="file" id="base-file" accept=".xml" hidden>
-                <button class="btn secondary" onclick="document.getElementById('base-file').click()">Select Base XML</button>
-                <span class="file-name" id="base-file-name">Using Default: DtuxStatementV3.1Compact</span>
-            </div>
-
-            <div class="connector">
-                <div class="line"></div>
-                <div class="plus">+</div>
-                <div class="line"></div>
-            </div>
-
-            <div class="card color-card" id="color-drop-zone">
-                <div class="card-icon">🎨</div>
-                <h3>2. Upload Color Config</h3>
-                <p>The aesthetic config (e.g., Ramadhan Vibes with stunning color processing).</p>
-                <input type="file" id="color-file" accept=".xml" hidden>
-                <button class="btn secondary" onclick="document.getElementById('color-file').click()">Select Color XML</button>
-                <span class="file-name" id="color-file-name">No file selected</span>
+        <div class="upload-section" style="flex-direction: column;">
+            <div class="card base-card" id="drop-zone" style="width: 100%;">
+                <div class="card-icon">📁</div>
+                <h3>Upload Your GCam XML</h3>
+                <p>Drag and drop your config here, or click to browse.</p>
+                <input type="file" id="config-file" accept=".xml" hidden>
+                <button class="btn secondary" onclick="document.getElementById('config-file').click()">Select Config XML</button>
+                <span class="file-name" id="file-name">No file selected</span>
             </div>
         </div>
 
         <div class="action-section">
             <div class="name-input-wrapper" style="margin-bottom: 1.5rem; text-align: center;">
                 <label for="output-name" style="color: var(--text-muted); font-size: 0.95rem; margin-right: 10px;">Output Filename:</label>
-                <input type="text" id="output-name" value="Ultimate_Merged_Config" style="padding: 0.8rem; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: white; width: 250px; font-family: var(--font-body);">
+                <input type="text" id="output-name" value="Injected_Opmode_61456" style="padding: 0.8rem; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: white; width: 250px; font-family: var(--font-body);">
                 <span style="color: var(--text-muted);">.xml</span>
             </div>
-            <button class="btn primary disabled" id="merge-btn" disabled>
-                <span class="icon">🚀</span> Merge & Download Ultimate Config
+            <button class="btn primary disabled" id="inject-btn" disabled>
+                <span class="icon">💉</span> Inject 61456 & Download
             </button>
         </div>
 
         <div class="status-box" id="status-box">
-            <p id="status-msg">Waiting for files...</p>
+            <p id="status-msg">Waiting for XML file...</p>
         </div>
     </main>
 </body>

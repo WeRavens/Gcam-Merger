@@ -1,124 +1,84 @@
-const baseInput = document.getElementById('base-file');
-const colorInput = document.getElementById('color-file');
-const baseName = document.getElementById('base-file-name');
-const colorName = document.getElementById('color-file-name');
-const mergeBtn = document.getElementById('merge-btn');
+const fileInput = document.getElementById('config-file');
+const fileName = document.getElementById('file-name');
+const injectBtn = document.getElementById('inject-btn');
 const statusBox = document.getElementById('status-box');
 const statusMsg = document.getElementById('status-msg');
 
-let baseContent = (typeof defaultBaseXML !== 'undefined') ? defaultBaseXML : null;
-let colorContent = null;
-let baseFileNameStr = 'Base_Config.xml';
+let configContent = null;
+let originalFileNameStr = 'Injected_Config';
 
-// Pattern of Image Processing / Color parameters to extract
-const colorPatterns = [
-    /^lib_saturation.*/, /^lib_contrast.*/, /^lib_cg\d*.*/,
-    /^lib_gamma.*/, /^lib_tone.*/, /^lib_curve.*/, /^pref_tonecurve.*/, /^pref_gammacurve.*/,
-    /^rg_.*/, /^bg_.*/, /^gg_.*/, /^gb_.*/, /^br_.*/, /^bb_.*/, /^rr_.*/, /^rb_.*/, /^gr_.*/,
-    /^d50_.*/, /^d65_.*/, /^d75_.*/, /^cw_.*/, /^f_.*/, /^tl84_.*/,
-    /^a_bg_.*/, /^a_rg_.*/, /^h_bg_.*/, /^h_rg_.*/,
-    /^pref_satCCT_.*/, /^pref_global_hue_.*/, /^pref_[RGB]_hue_.*/,
-    /^CCT_WB_.*/, /^WB_.*/,
-    /^red_key_.*/, /^green_key_.*/, /^blue_key_.*/,
-    /^lib_expocomp.*/, /^lib_exposure.*/, /^lib_brightness.*/, /^lib_light.*/, 
-    /^lib_dehazed.*/, /^lib_shadow.*/, /^lib_highlight.*/, /^lib_clarity.*/,
-    /^pref_color_transform.*/
-];
-
-// Handles file parsing
-function handleFileSelect(event, type) {
+function handleFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    if (type === 'base') {
-        baseName.textContent = file.name;
-        baseFileNameStr = file.name.replace('.xml', '') + ' (Ultimate Color Merged).xml';
-    } else {
-        colorName.textContent = file.name;
-    }
+    fileName.textContent = file.name;
+    const baseNameMatch = file.name.match(/(.*?)\.xml$/i);
+    originalFileNameStr = baseNameMatch ? baseNameMatch[1] : file.name;
 
     const reader = new FileReader();
     reader.onload = (e) => {
-        if (type === 'base') baseContent = e.target.result;
-        else colorContent = e.target.result;
-        
-        checkReadyState();
+        configContent = e.target.result;
+        injectBtn.disabled = false;
+        injectBtn.classList.remove('disabled');
+        statusMsg.innerHTML = "XML Ready! Click Inject to push Opmode 61456 into all streams.";
+        statusBox.classList.remove('success');
     };
     reader.readAsText(file);
 }
 
-function checkReadyState() {
-    if (baseContent && colorContent) {
-        mergeBtn.disabled = false;
-        mergeBtn.classList.remove('disabled');
-        statusMsg.innerHTML = "Files ready! <b>Optional:</b> Enter a custom output name, then click Merge.";
-        statusBox.classList.remove('success');
-    }
-}
+fileInput.addEventListener('change', handleFileSelect);
 
-// Initial check in case baseContent is already defined by dtuxBase.js
-// but we just wait for colorContent to be uploaded.
-
-baseInput.addEventListener('change', (e) => handleFileSelect(e, 'base'));
-colorInput.addEventListener('change', (e) => handleFileSelect(e, 'color'));
-
-// XML Merge Logic
-mergeBtn.addEventListener('click', () => {
+injectBtn.addEventListener('click', () => {
     try {
-        const baseMap = new Map();
-        const colorMap = new Map();
+        if (!configContent) return;
         
-        // This Regex safely grabs entire tags strictly without altering their exact spacing/properties
-        const tagRegex = /<(string|boolean|int|long|float)\s+name="([^"]+)"[\s\S]*?(?:<\/\1>|\/>)/g;
-        
-        let match;
-        // Parse Base XML
-        while ((match = tagRegex.exec(baseContent)) !== null) {
-            baseMap.set(match[2], match[0]);
-        }
-        
-        // Parse Color XML
-        while ((match = tagRegex.exec(colorContent)) !== null) {
-            colorMap.set(match[2], match[0]);
-        }
+        // Counter for replaced opmodes
+        let count = 0;
 
-        let migrated = 0;
-        let finalXML = "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>\n<map>\n";
-        const keysToWrite = new Set();
+        // Replace value inside tags <string name="pref_opmode...">VALUE</string>
+        // STRICT Regex to exclude "pref_opmodes" and "pref_stream_opmode" which breaks the SDK Stream Mode dropdown
+        const strictOpmodeContentRegex = /(<(string|int|long)\s+name="(pref_opmode(?:_(?:video|portrait|night|motion|normal|experimental))?_key(?:_[0-9]+|_front)?)">)(.*?)(<\/\2>)/gi;
+        let finalXML = configContent.replace(strictOpmodeContentRegex, (match, p1, tag, pName, pVal, pClose) => {
+            if (pVal !== '61456') count++;
+            return p1 + '61456' + pClose;
+        });
 
-        // 1. Write the base parameters, swapping colors if present
-        for (const [key, baseTag] of baseMap.entries()) {
-            keysToWrite.add(key);
-            let tagToWrite = baseTag;
-            
-            if (colorMap.has(key) && colorPatterns.some(regex => regex.test(key))) {
-                tagToWrite = colorMap.get(key); // Substitute with Exact Color String
-                migrated++;
+        // Replace value attribute in self closing tags <int name="pref_opmode..." value="VALUE" />
+        const strictOpmodeAttrRegex = /(<(string|int|long)\s+name="(pref_opmode(?:_(?:video|portrait|night|motion|normal|experimental))?_key(?:_[0-9]+|_front)?)"(?:\s+[^>]*)?value=")(.*?)(".*?\/>)/gi;
+        finalXML = finalXML.replace(strictOpmodeAttrRegex, (match, p1, tag, pName, pVal, pClose) => {
+            if (pVal !== '61456') count++;
+            return p1 + '61456' + pClose;
+        });
+
+        // Force adding common stream opmode keys if missing
+        const requiredKeys = [
+            "pref_opmode_night_key", "pref_opmode_portrait_key", 
+            "pref_opmode_video_key", "pref_opmode_normal_key", "pref_opmode_motion_key", "pref_opmode_key",
+            "pref_opmode_experimental_key"
+        ];
+        
+        requiredKeys.forEach(reqKey => {
+            // Check if it exists natively
+            if (!finalXML.includes(`name="${reqKey}"`)) {
+                // Determine whether to insert it as a string tag
+                const fallbackTag = `    <string name="${reqKey}">61456</string>\n`;
+                // Insert it right before </map>
+                finalXML = finalXML.replace(/<\/map>/i, fallbackTag + "</map>");
+                count++;
             }
-            finalXML += "    " + tagToWrite + "\n";
-        }
-
-        // 2. Append missing color parameters into the XML
-        for (const [key, colorTag] of colorMap.entries()) {
-            if (!keysToWrite.has(key) && colorPatterns.some(regex => regex.test(key))) {
-                finalXML += "    " + colorTag + "\n";
-                migrated++;
-            }
-        }
-        
-        finalXML += "</map>\n";
+        });
 
         let customName = document.getElementById('output-name').value.trim();
-        if (!customName) customName = 'Ultimate_Merged_Config';
+        if (!customName) customName = originalFileNameStr + '_Opmode61456';
         if (!customName.endsWith('.xml')) customName += '.xml';
 
         triggerDownload(finalXML, customName);
         
-        statusMsg.innerHTML = `Success! ✨ Merged <b>${migrated} Aesthetic keys</b> safely! File is downloading...`;
+        statusMsg.innerHTML = `Success! ✨ Injected <b>61456</b> into ${count} stream parameters! File is downloading...`;
         statusBox.classList.add('success');
 
     } catch (err) {
-        statusMsg.textContent = `Error during merge: ${err.message}`;
+        statusMsg.textContent = `Error during injection: ${err.message}`;
         console.error(err);
     }
 });
@@ -135,24 +95,18 @@ function triggerDownload(content, filename) {
     document.body.removeChild(a);
 }
 
-// Drag & Drop visual feedbacks
-['base-drop-zone', 'color-drop-zone'].forEach(id => {
-    const el = document.getElementById(id);
-    el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
-    el.addEventListener('dragleave', e => { el.classList.remove('drag-over'); });
-    el.addEventListener('drop', e => {
-        e.preventDefault();
-        el.classList.remove('drag-over');
-        const file = e.dataTransfer.files[0];
-        if(file) {
-            const inputId = id === 'base-drop-zone' ? 'base-file' : 'color-file';
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            document.getElementById(inputId).files = dataTransfer.files;
-            
-            // trigger change event
-            const event = new Event('change');
-            document.getElementById(inputId).dispatchEvent(event);
-        }
-    });
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', e => { dropZone.classList.remove('drag-over'); });
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if(file) {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        const event = new Event('change');
+        fileInput.dispatchEvent(event);
+    }
 });
