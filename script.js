@@ -137,7 +137,18 @@ injectBtn.addEventListener('click', () => {
             "pref_stream_opmode_key_4": "2", "pref_stream_opmode_key_5": "2", "pref_stream_opmode_key_front": "2",
             "pref_opmodes_in": "1",
             "pref_opmodes_key": "1", "pref_opmodes_key_2": "1", "pref_opmodes_key_3": "1",
-            "pref_opmodes_key_4": "0", "pref_opmodes_key_front": "0"
+            "pref_opmodes_key_4": "0", "pref_opmodes_key_front": "0",
+            
+            // Nikita Ultrawide Anti-Noise Fix:
+            // Wipe the incompatible 64MP IMX686 noise-profile on Lens 3
+            // Revert back to Auto/System handling just like LMC's extreme cleanliness Native algorithm
+            "pref_noise_modeler_toggle_aux_key": "0", 
+            "pref_noise_modeler_aux_key": "0",
+            "pref_noise_model_key_3": "0",
+            "lib_spatiala_key_3": "1", // Enable basic spatial denoise just in case
+            "lib_spatialb_key_3": "1",
+            "lib_lumanoise_key_3": "1",
+            "lib_denoise_key_3": "1"
         };
         
         for (const [key, val] of Object.entries(nikitaDropdowns)) {
@@ -157,17 +168,99 @@ injectBtn.addEventListener('click', () => {
             }
         }
 
+        // ----------------------------------------------------
+        // EXCEPTION FOR LENS 3 (ULTRA_WIDE) - FORCE TO 33041 
+        // ----------------------------------------------------
+        // Xiaomi/Poco Wide lens usually crashes on 61456, we override all "_3" keys to 33041 instead
+        const wideRegexContent = /(<(string|int|long)\s+name="(pref_opmode(?:_(?:video|portrait|night|motion|normal|experimental))?_key(?:_3))">)(.*?)(<\/\2>)/gi;
+        finalXML = finalXML.replace(wideRegexContent, (match, p1, tag, pName, pVal, pClose) => {
+            return p1 + '33041' + pClose;
+        });
+        const wideRegexAttr = /(<(string|int|long)\s+name="(pref_opmode(?:_(?:video|portrait|night|motion|normal|experimental))?_key(?:_3))"(?:\s+[^>]*)?value=")(.*?)(".*?\/>)/gi;
+        finalXML = finalXML.replace(wideRegexAttr, (match, p1, tag, pName, pVal, pClose) => {
+            return p1 + '33041' + pClose;
+        });
+
+        // Ensure Wide mode keys exist
+        const wideRequiredKeys = [
+            "pref_opmode_night_key_3", "pref_opmode_portrait_key_3", 
+            "pref_opmode_video_key_3", "pref_opmode_normal_key_3", "pref_opmode_motion_key_3", "pref_opmode_key_3",
+            "pref_opmode_experimental_key_3"
+        ];
+        wideRequiredKeys.forEach(reqKey => {
+            if (!finalXML.includes(`name="${reqKey}"`)) {
+                const fallbackTag = `    <string name="${reqKey}">33041</string>\n`;
+                finalXML = finalXML.replace(/<\/map>/i, fallbackTag + "</map>");
+                count++;
+            }
+        });
+
+        // ----------------------------------------------------
+        // FORCE AUX BUTTONS (MULTIPLE CAMERAS MAP & ENABLE)
+        // ----------------------------------------------------
+        const auxMapping = {
+            // -- LMC Default Camera IDs --
+            "pref_aux_get_id1_key": "0",
+            "pref_aux_get_id2_key": "2",
+            "pref_aux_get_id3_key": "3",
+            "pref_aux_get_id4_key": "4",
+            "pref_aux_get_id5_key": "5",
+            "pref_aux_enable_id1_key": "1",
+            "pref_aux_enable_id2_key": "1",
+            "pref_aux_enable_id3_key": "0",  // From hyo.xml: user kept IDs 1 and 2 visible by default
+            "pref_aux_enable_id4_key": "0",
+            "pref_aux_enable_id5_key": "0",
+            
+            // -- Nikita "suportwidee.xml" Advanced Manual ID List --
+            "pref_show_buttons_key": "1", // Show buttons on viewfinder
+            "pref_switch_manual_camera_array_key": "1", // Use listed IDs
+            "pref_enable_manual_array_key": "1", // Use given values (Rear Lens ID)
+            "pref_manual_cameraid_key": "1",
+            "pref_manual_array_key": "0,1,2,3,4,5,6", // List ID Manually
+            "pref_aux_layout": "0", // Vertical layout
+            
+            // Nikita Rear Lens mapping (Main=0, Tele=2, Wide=2) => To match user UI screenshot
+            "pref_manual_cameraid_back_1_key": "0",
+            "pref_manual_cameraid_back_2_key": "2",
+            "pref_manual_cameraid_back_3_key": "2",
+            "pref_manual_cameraid_back_4_key": "4",
+            "pref_manual_cameraid_back_5_key": "5",
+            
+            // Nikita Front Lens mapping (All set to 1) 
+            "pref_manual_cameraid_front_1_key": "1",
+            "pref_manual_cameraid_front_2_key": "1",
+            "pref_manual_cameraid_front_3_key": "1",
+            "pref_manual_cameraid_front_4_key": "1",
+            "pref_manual_cameraid_front_5_key": "1",
+            
+            // Nikita UI Text Name Override (Optional visual fixes)
+            "pref_manual_camera_name_key_main": "1x",
+            "pref_manual_camera_name_key_2": "2x",
+            "pref_manual_camera_name_key_3": "0.6x"
+        };
+        for (const [key, val] of Object.entries(auxMapping)) {
+            const regexContent = new RegExp(`(<(?:string|int)\\s+name="${key}">)(.*?)(<\\/(?:string|int)>)`, "gi");
+            if (regexContent.test(finalXML)) {
+                finalXML = finalXML.replace(regexContent, `$1${val}$3`);
+            } else if (new RegExp(`(<(?:string|int)\\s+name="${key}"(?:\\s+[^>]*)?value=")(.*?)(".*?\\/>)`, "gi").test(finalXML)) {
+                finalXML = finalXML.replace(new RegExp(`(<(?:string|int)\\s+name="${key}"(?:\\s+[^>]*)?value=")(.*?)(".*?\\/>)`, "gi"), `$1${val}$3`);
+            } else {
+                const defaultTag = `    <string name="${key}">${val}</string>\n`;
+                finalXML = finalXML.replace(/<\/map>/i, defaultTag + "</map>");
+            }
+        }
+
         let customName = document.getElementById('output-name').value.trim();
         if (!customName) customName = originalFileNameStr + '_Opmode61456';
         if (!customName.endsWith('.xml')) customName += '.xml';
 
         triggerDownload(finalXML, customName);
         
-        statusMsg.innerHTML = `Success! ✨ Injected <b>61456</b> into ${count} stream parameters! File is downloading...`;
+        statusMsg.innerHTML = `Success! ✨ Injected <b>61456 (Rear/Front)</b> + <b>33041 (Wide)</b> + <b>Multi-Cam AUX</b> ke ${count} parameter! File is downloading...`;
         statusBox.classList.add('success');
 
     } catch (err) {
-        statusMsg.textContent = `Error during injection: ${err.message}`;
+        statusMsg.innerHTML = `<b>Error during injection:</b> ${err.message}`;
         console.error(err);
     }
 });
